@@ -12,8 +12,8 @@ entity PWM_generator is
     clock    : integer := 125; --IN MHz
     div0     : integer := 41667;
     div1     : integer := 125000;
-    div2     : integer := 0;
-    div3     : integer := 0
+    div2     : integer := 1;
+    div3     : integer := 1
   );
   port (
     clk     : in std_logic;
@@ -46,10 +46,10 @@ begin
 
     -- 3. Frequency divider logic
     -- Just the begings of logic for a clock Divider
-    cnt_limit <= (clock/div0) when freq = "00" else
-                 (clock/div1) when freq = "01" else
-                 (clock/div2)  when freq = "10" else
-                 (clock/div3)  when freq = "11" else 1;
+    cnt_limit <= (((clock*(10 ** 6))/(div0))) when freq = "00" else
+                 (((clock*(10 ** 6))/(div1))) when freq = "01" else
+                 (((clock*(10 ** 6))/(div2))) when freq = "10" else
+                 (((clock*(10 ** 6))/(div3))) when freq = "11" else 1;
 
     ----------------------------------------------------------
     -- Combined Process: Handles Clock division and Address
