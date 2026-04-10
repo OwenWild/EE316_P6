@@ -10,16 +10,16 @@ entity top_level is
         
         LCD_SDA    : inout std_logic;
         LCD_SCL    : inout std_logic;
-        led1_r : out std_logic;
-        led1_g : out std_logic;
-        led1_b : out std_logic;
-        BTN0 : in std_logic; -- Async reset 
-        BTN1 : in std_logic; -- select between 2 analog sources
-        BTN2 : in std_logic; -- secte between enable and disable
-        BTN3 : in std_logic; -- unused atm
-        jb : out std_logic_vector(3 downto 0); -- pmod LEDs, intensity is based on the voltage, done with duty cycle
-        US_Echo : in std_logic;
-        US_Trig : in std_logic;
+        led1_r     : out std_logic;
+        led1_g     : out std_logic;
+        led1_b     : out std_logic;
+        BTN0       : in std_logic; -- Async reset 
+        BTN1       : in std_logic; -- select between 2 analog sources
+        BTN2       : in std_logic; -- secte between enable and disable
+        BTN3       : in std_logic; -- unused atm
+        jb         : out std_logic_vector(3 downto 0); -- pmod LEDs, intensity is based on the voltage, done with duty cycle
+        US_Echo    : in std_logic;
+        US_Trig    : in std_logic;
         buzzer_out : out std_logic
     );
     
@@ -89,7 +89,10 @@ architecture Behavioral of top_level is
     -------    
     
 begin
-    Reset_Master <= oReset or Reset;
+    Reset                 <= BTN0;
+    Reset_Master          <= oReset or Reset;
+    buzzer_out            <= oPWM;
+    PWM_freq              <= "00";
     PWM_data(15 downto 8) <= "10000000";
 
     inst_Power_on_Reset: Reset_Delay
