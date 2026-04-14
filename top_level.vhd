@@ -118,8 +118,8 @@ begin
             clock    => 125, --IN MHz
             div0     => 41667,
             div1     => 125000,
-            div2     => 0,
-            div3     => 0
+            div2     => 50000,
+            div3     => 50000
        )
        port map(
             clk     => CLOCK_50,
