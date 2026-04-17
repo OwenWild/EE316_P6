@@ -71,11 +71,15 @@
  * change all the needed parameters in one place.
  */
 #define TMRCTR_DEVICE_ID        XPAR_TMRCTR_1_DEVICE_ID
+#define TMRCTR_0_DEVICE_ID        XPAR_TMRCTR_0_DEVICE_ID
+
 
 #ifdef __MICROBLAZE__
 #define TMRCTR_INTERRUPT_ID     XPAR_INTC_0_TMRCTR_0_VEC_ID
 #else
 #define TMRCTR_INTERRUPT_ID     XPAR_FABRIC_TMRCTR_1_VEC_ID
+#define TMRCTR_0_INTERRUPT_ID     XPAR_FABRIC_TMRCTR_0_VEC_ID
+
 #endif
 
 #ifdef XPAR_INTC_0_DEVICE_ID
@@ -102,6 +106,18 @@
 #define TMRCTR_1_0				0			 /* Timer 0 ID*/
 #define TMRCTR_1_1				1			 /* Timer 1 ID*/
 
+
+/*
+ * The following constant is used to set the reset value of the timer counter,
+ * making this number larger reduces the amount of time this example consumes
+ * because it is the value the timer counter is loaded with when it is started
+ */
+#define RESET_VALUE	 0xFF000000
+
+static u32   capture0, capture1, pulsewidth;
+float distance;
+
+
 /**************************** Type Definitions *******************************/
 
 /***************** Macros (Inline Functions) Definitions *********************/
@@ -110,9 +126,17 @@
 int TmrCtrPwmExample(INTC *IntcInstancePtr, XTmrCtr *InstancePtr, u16 DeviceId,
 								u16 IntrId);
 static void TimerCounterHandler(void *CallBackRef, u8 TmrCtrNumber);
+static void TimerCounterHandler_0(void *CallBackRef, u8 TmrCtrNumber);
+
 static int TmrCtrSetupIntrSystem(INTC *IntcInstancePtr, XTmrCtr *InstancePtr,
 						u16 DeviceId, u16 IntrId);
+
 static void TmrCtrDisableIntr(INTC *IntcInstancePtr, u16 IntrId);
+
+int TmrCtrCapture(INTC *IntcInstancePtr,
+			XTmrCtr *InstancePtr,
+			u16 DeviceId,
+			u16 IntrId);
 
 /************************** Variable Definitions *****************************/
 INTC InterruptController;  /* The instance of the Interrupt Controller */
@@ -124,6 +148,18 @@ XTmrCtr TimerCounterInst;  /* The instance of the Timer Counter */
  */
 static int   PeriodTimerHit = FALSE;
 static int   HighTimerHit = FALSE;
+
+/* the interupt variables*/
+#ifndef TESTAPP_GEN
+INTC InterruptController;  /* The instance of the Interrupt Controller */
+
+XTmrCtr TimerCaptureInst;   /* The instance of the Timer Counter */
+#endif
+/*
+ * The following variables are shared between non-interrupt processing and
+ * interrupt processing such that they must be global.
+ */
+volatile int TimerExpired;
 
 /*****************************************************************************/
 /**
@@ -148,8 +184,22 @@ int main(void)
 		xil_printf("Tmrctr PWM Example Failed\r\n");
 		return XST_FAILURE;
 	}
+	xil_printf("Successfully Started the PWM Trigger\r\n");
 
-	xil_printf("Successfully ran Tmrctr PWM Example\r\n");
+	Status = TmrCtrCapture(&InterruptController, &TimerCaptureInst,
+					TMRCTR_0_DEVICE_ID , TMRCTR_0_INTERRUPT_ID);
+	if (Status != XST_SUCCESS) {
+		xil_printf("Tmrctr PWM Example Failed\r\n");
+		return XST_FAILURE;
+	}
+	xil_printf("Successfully Started the Capture the pulsewidth\r\n");
+
+	while(1){
+		distance = (float)pulsewidth*0.020/148;
+		xil_printf("Successfully ran Tmrctr PWM Example\r\n");
+	}
+
+	xil_printf("Distance %5.2F inches!\r\n", distance);
 	return XST_SUCCESS;
 }
 
@@ -250,7 +300,7 @@ int TmrCtrPwmExample(INTC *IntcInstancePtr, XTmrCtr *TmrCtrInstancePtr,
 			goto err;
 		}
 
-		xil_printf("PWM Configured for Duty Cycle = %d\r\n", DutyCycle);
+		//xil_printf("PWM Configured for Duty Cycle = %d\r\n", DutyCycle);
 
 		/* Enable PWM */
 		XTmrCtr_PwmEnable(TmrCtrInstancePtr);
@@ -448,6 +498,79 @@ void TmrCtrDisableIntr(INTC *IntcInstancePtr, u16 IntrId)
 #endif
 }
 
+/*****************************************************************************/
+/**
+* This function does a minimal test on the timer counter device and driver as a
+* design example.  The purpose of this function is to illustrate how to use the
+* XTmrCtr component.  It initializes a timer counter and then sets it up in
+* compare mode with auto reload such that a periodic interrupt is generated.
+*
+* This function uses interrupt driven mode of the timer counter.
+*
+* @param	IntcInstancePtr is a pointer to the Interrupt Controller
+*		driver Instance
+* @param	TmrCtrInstancePtr is a pointer to the XTmrCtr driver Instance
+* @param	DeviceId is the XPAR_<TmrCtr_instance>_DEVICE_ID value from
+*		xparameters.h
+* @param	IntrId is XPAR_<INTC_instance>_<TmrCtr_instance>_INTERRUPT_INTR
+*		value from xparameters.h
+*
+* @return	XST_SUCCESS if the Test is successful, otherwise XST_FAILURE
+*
+* @note		This function contains an infinite loop such that if interrupts
+*		are not working it may never return.
+*
+*****************************************************************************/
+int TmrCtrCapture(INTC *IntcInstancePtr,
+			XTmrCtr *TmrCtrInstancePtr,
+			u16 DeviceId,
+			u16 IntrId)
+{
+	int Status;
+
+		/*
+		 * Initialize the timer counter so that it's ready to use,
+		 * specify the device ID that is generated in xparameters.h
+		 */
+		Status = XTmrCtr_Initialize(TmrCtrInstancePtr, DeviceId);
+		if (Status != XST_SUCCESS) {
+			return XST_FAILURE;
+		}
+
+		/*
+		 * Perform a self-test to ensure that the hardware was built
+		 * correctly. Timer0 is used for self test
+		 */
+		Status = XTmrCtr_SelfTest(TmrCtrInstancePtr, TMRCTR_0_0);
+		if (Status != XST_SUCCESS) {
+			return XST_FAILURE;
+		}
+
+		/*
+		 * Connect the timer counter to the interrupt subsystem such that
+		 * interrupts can occur
+		 */
+		Status = TmrCtrSetupIntrSystem(IntcInstancePtr, TmrCtrInstancePtr,
+								DeviceId, IntrId);
+		if (Status != XST_SUCCESS) {
+			return XST_FAILURE;
+		}
+
+		/*
+		 * Setup the handler for the timer counter that will be called from the
+		 * interrupt context when the timer expires
+		 */
+		XTmrCtr_SetHandler(TmrCtrInstancePtr, TimerCounterHandler_0,
+								TmrCtrInstancePtr);
+
+		u32 masks = XTC_CSR_ENABLE_ALL_MASK | XTC_CSR_ENABLE_INT_MASK | XTC_CSR_AUTO_RELOAD_MASK |
+				XTC_CSR_EXT_CAPTURE_MASK | XTC_CSR_CAPTURE_MODE_MASK;
+		Xil_Out32(0x42800000, masks); //Start timer0 with Capture capability and interrupts.
+		Xil_Out32(0x42800010, masks); //Start timer1 with Capture capability and interrupts.
+
+		return Status;
+}
+
 
 /******************************************************************************/
 /**
@@ -467,10 +590,6 @@ void TmrCtrDisableIntr(INTC *IntcInstancePtr, u16 IntrId)
 *
 ******************************************************************************/
 static void TimerCounterHandler_0(void *CallBackRef, u8 TmrCtrNumber){
-	int pulsewidth;
-	int capture0;
-	int capture1;
-	_Bool PeriodTimerHit;
 
 	/* Mark if period timer expired */
 	if(TmrCtrNumber == TMRCTR_0_0){
