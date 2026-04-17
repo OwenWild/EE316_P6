@@ -96,6 +96,12 @@
 #define DUTYCYCLE_DIVISOR       1500         /* Duty cycle Divisor */
 #define WAIT_COUNT              PWM_PERIOD   /* Interrupt wait counter */
 
+/* Interupt timer defs*/
+#define TMRCTR_0_0				0			 /* Timer 0 ID*/
+#define TMRCTR_0_1				1			 /* Timer 1 ID*/
+#define TMRCTR_1_0				0			 /* Timer 0 ID*/
+#define TMRCTR_1_1				1			 /* Timer 1 ID*/
+
 /**************************** Type Definitions *******************************/
 
 /***************** Macros (Inline Functions) Definitions *********************/
@@ -220,7 +226,7 @@ int TmrCtrPwmExample(INTC *IntcInstancePtr, XTmrCtr *TmrCtrInstancePtr,
 	 * proportionally. This is done until duty cycle is reached upto
 	 * MAX_DUTYCYCLE
 	 */
-	Div = DUTYCYCLE_DIVISOR;
+	//Div = DUTYCYCLE_DIVISOR;
 
 	/* Configure PWM */
 	do {
@@ -440,4 +446,52 @@ void TmrCtrDisableIntr(INTC *IntcInstancePtr, u16 IntrId)
 #else
 	XScuGic_Disconnect(IntcInstancePtr, IntrId);
 #endif
+}
+
+
+/******************************************************************************/
+/**
+*
+* This function is going to attempt to handel the echo functionality of an ultra sonic sensor.
+* It will receve from the Pwm a Trigger then run this echo
+*
+* @param	What is this? => CallBackRef is a pointer to the callback function
+*
+* @param	Give the Timer IDs for interupts (I think) =>
+* 			TmrCtrNumber is the number of the timer to which this
+*			handler is associated with.
+*
+* @return	None.
+*
+* @note		None.
+*
+******************************************************************************/
+static void TimerCounterHandler_0(void *CallBackRef, u8 TmrCtrNumber){
+	int pulsewidth;
+	int capture0;
+	int capture1;
+	_Bool PeriodTimerHit;
+
+	/* Mark if period timer expired */
+	if(TmrCtrNumber == TMRCTR_0_0){
+		capture0 = XTmrCtr_GetCaptureValue(&TimerCaptureInst, TMRCTR_0_0);
+		xil_printf("\r\nIn Tmrctr interrupt handler - TMRCTR_0 %u\r\n", capture0);
+		PeriodTimerHit = TRUE;
+	}
+
+	/* Mark if high time timer expired */
+		if(TmrCtrNumber == TMRCTR_0_1){
+			capture1 = XTmrCtr_GetCaptureValue(&TimerCaptureInst, TMRCTR_0_1);
+			xil_printf("\r\nIn Tmrctr interrupt handler - TMRCTR_0 %u\r\n", capture1);
+			PeriodTimerHit = TRUE;
+
+			if(capture1 > capture0){
+				pulsewidth = capture1 - capture0;
+			}
+				else{
+				pulsewidth = capture1 - capture0 + 0xFFFFFFF + 1;
+			}
+
+		}
+
 }
