@@ -186,7 +186,7 @@ int main(void)
 	}
 	xil_printf("Successfully Started the PWM Trigger\r\n");
 
-	Status = TmrCtrCapture(&InterruptController, &TimerCaptureInst,
+	Status = TmrCtrCapture(&InterruptController, &TimerCounterInst,
 					TMRCTR_0_DEVICE_ID , TMRCTR_0_INTERRUPT_ID);
 	if (Status != XST_SUCCESS) {
 		xil_printf("Tmrctr PWM Example Failed\r\n");
@@ -593,15 +593,17 @@ static void TimerCounterHandler_0(void *CallBackRef, u8 TmrCtrNumber){
 
 	/* Mark if period timer expired */
 	if(TmrCtrNumber == TMRCTR_0_0){
-		capture0 = XTmrCtr_GetCaptureValue(&TimerCaptureInst, TMRCTR_0_0);
+		//capture0 = XTmrCtr_GetCaptureValue(&TimerCaptureInst, TMRCTR_0_0);
+		capture0 =  Xil_In32(0x42800004);
 		xil_printf("\r\nIn Tmrctr interrupt handler - TMRCTR_0 %u\r\n", capture0);
 		PeriodTimerHit = TRUE;
 	}
 
 	/* Mark if high time timer expired */
 		if(TmrCtrNumber == TMRCTR_0_1){
-			capture1 = XTmrCtr_GetCaptureValue(&TimerCaptureInst, TMRCTR_0_1);
-			xil_printf("\r\nIn Tmrctr interrupt handler - TMRCTR_0 %u\r\n", capture1);
+			//capture1 = XTmrCtr_GetCaptureValue(&TimerCaptureInst, TMRCTR_0_1);
+			capture1 =  Xil_In32(0x42800014);
+			xil_printf("\r\nIn Tmrctr interrupt handler - TMRCTR_1 %u\r\n", capture1);
 			PeriodTimerHit = TRUE;
 
 			if(capture1 > capture0){
